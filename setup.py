@@ -21,7 +21,7 @@ setup(
     name='gigantum',
     version=__version__,
 
-    description='CLI for the Gigantum Platform',
+    description='CLI for the Gigantum Client',
     long_description_content_type='text/markdown',
     long_description=long_description,
     install_requires=install_requires,
@@ -30,7 +30,7 @@ setup(
     author_email='support@gigantum.com',
 
     entry_points={
-        'console_scripts': ['gigantum=gigantumcli.cli:main'],
+        'console_scripts': ['gigantum=gigantumcli.cli:cli'],
     },
     packages=['gigantumcli'],
     include_package_data=True,
@@ -39,6 +39,7 @@ setup(
     license='MIT',
     classifiers=[
         'Development Status :: 4 - Beta',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.5',
@@ -48,6 +49,7 @@ setup(
         'data-science',
         'science',
         'gigantum',
-        'open-science'
+        'open-science',
+        'machine-learning'
     ]
 )

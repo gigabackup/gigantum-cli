@@ -5,13 +5,13 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgigantum%2Fgigantum-cli.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgigantum%2Fgigantum-cli?ref=badge_shield)
 
 Simple user-facing command line interface (CLI) for installing and running the
-Gigantum application locally
+Gigantum Client locally
 
 ## Introduction
 
 This Python package is provided as a method to install and run the Gigantum
-application, locally on your computer. It provides a simple command line
-interface to install, update, start, and stop the application.
+Client, locally on your computer. It provides a simple command line
+interface to install, update, start, stop, and configure the application.
 
 More detailed install instructions can be found at the Gigantum
 [docs site](https://docs.gigantum.com/docs)
@@ -50,7 +50,7 @@ If you encounter any issues or have any questions or comments, please join our
      - Docker for Mac works on OS X El Capitan 10.11 and newer macOS releases: [https://store.docker.com/editions/community/docker-ce-desktop-mac](https://store.docker.com/editions/community/docker-ce-desktop-mac)
 
    - Ubuntu:
-     - (Recommended Method) Install using Docker's "helper" script, which
+     - Install using Docker's "helper" script, which
        will perform all install steps for you (you may inspect the
        get-docker.sh script before running it):
 
@@ -75,8 +75,7 @@ If you encounter any issues or have any questions or comments, please join our
        ```
 
        - Note, Docker provides this warning when doing this, which in most
-         cases is not an issue (it is similar to the risks associated with sudo
-         access):
+         cases is not an issue:
 
          > WARNING: Adding a user to the "docker" group will grant the ability
          > to run containers which can be used to obtain root privileges on
@@ -137,43 +136,23 @@ installed as a globally available script called `gigantum`.
 Usage of the CLI then becomes:
 
 ```
-$ gigantum [-h] [--tag <tag>] action
+$ gigantum -h
+Usage: gigantum [OPTIONS] COMMAND [ARGS]...
+
+  A Command Line Interface to manage the Gigantum Client.
+
+Options:
+  -h, --help  Show this message and exit.
+
+Commands:
+  config    Manage the Client configuration file.
+  feedback  Open the default web browser to provide feedback.
+  install   Install the Gigantum Client Docker Image.
+  server    Manage server connections for this Client instance.
+  start     Start Gigantum Client.
+  stop      Stop Gigantum Client.
+  update    Check if an update is available for Gigantum Client.
 ```
-
-#### Actions
-
-- `install`
-  - **Run this command after installing the CLI for the first time.**
-  - Depending on your bandwidth, installing for the first time can take a while
-    as the Docker Image layers are downloaded.
-  - This command installs the Gigantum application Docker Image for the first
-    time and configures your working directory.
-
-- `update`
-  - This command updates an existing installation to the latest version of the
-    application
-  - If you have the latest version, nothing happens, so it is safe to run this
-    command at any time.
-  - When you run `update`, the changelog for the new version is displayed and
-    you are asked to confirm the upload before it begins.
-  - Optionally, you can use the `--tag` option to install a specific version
-    instead of the latest
-
-- `start`
-  - This command starts the Gigantum application
-  - Once started, the application User Inteface is available at
-    [http://localhost:10000](http://localhost:10000)
-  - **Once you create your first LabBook, check your Gigantum working directory
-    for LabBook to make sure everything is configured properly. See the
-    `Gigantum Working Directory` section for more details.**
-
-- `stop`
-  - This command currently stops and removes all Gigantum managed Docker
-    containers and performs a container prune operation.
-
-- `feedback`
-  - This command opens a browser to discussion board where you can report bugs,
-    suggestions, desired features, etc.
 
 ## Usage
 
@@ -184,22 +163,26 @@ filesystem. You can interact directly with this directory if you'd like, but it
 is recommended to use the Gigantum UI as it ensures all activity is properly
 recorded.
 
-The Gigantum working directory location changes based on your operating system:
+The default working directory location changes based on your operating system:
 
 - **Windows**: `C:\Users\<username>\gigantum`
 - **OSX**: `/Users/<username>/gigantum`
 - **Linux**: `/home/<username>/gigantum`
 
 This directory follows a standard directory structure that organizes content by
-user and namespace. A namespace is the "owner" of a Project, and typically the
+user and namespace. A namespace is the "owner" of a Project or Dataset, and typically the
 creator. The working directory is organized as illustrated below:
 
 ```
 <Gigantum Working Directory>
-    |_ <logged in user's username>
-        |_ <namespace>
-               |_ labbooks
-                  |_ <project name>
+    |_ servers
+        |_ <server id>
+            |_ <logged in user's username>
+                |_ <namespace>
+                       |_ labbooks
+                          |_ <project name>
+                       |_ datasets
+                          |_ <dataset name>
 ```
 
 As an example, if the user `sarah` created 1 Project and downloaded 1 Project
@@ -207,27 +190,24 @@ from the user `janet` the directory would look like this:
 
 ```
 <Gigantum Working Directory>
-    |_ sarah
-        |_ sarah
-               |_ labbooks
-                  |_ my-first-labbook
-        |_ janet
-               |_ labbooks
-                  |_ initial-analysis-1
+    |_ servers
+        |_ gigantum-com
+            |_ sarah
+                |_ sarah
+                       |_ labbooks
+                          |_ my-first-labbook
+                |_ janet
+                       |_ labbooks
+                          |_ initial-analysis-1
 ```
 
 
 ### User Account
 
 To use the Gigantum application you must have a Gigantum user account. When you
-run the application for the first time you can register.
+run the application for the first time you can register with the default server gigantum.com.
 
-Note that you'll get an extra warning about granting the application access to
-your account when you sign in for the first time.  This is an extra security
-measure that occurs because the app is running on localhost and not a verified
-domain. This is expected.
-
-Once you login, your user identity is cached locally. This lets you run the
+By default, once you login your user identity is cached locally. This lets you run the
 application when disconnected from the internet and without needing to log in
 again. If you logout, you will not be able to use the application again until
 you have internet access and can re-authenticate.

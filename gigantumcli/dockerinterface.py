@@ -2,18 +2,25 @@ import socket
 import json
 import os
 import docker
-import re
+import click
 import subprocess
 import platform
 import requests
 from docker.errors import NotFound
 
-from gigantumcli.utilities import ask_question, ExitCLI
+from gigantumcli.utilities import ask_question
+
+# Temporary fix due to docker 2.5.0.0 and docker-py failing when container doesn't exist
+# See https://github.com/docker/docker-py/issues/2696
+if platform.system() == 'Windows':
+    from pywintypes import error as TempDockerError
+else:
+    class TempDockerError(OSError):
+        pass
 
 
 class DockerInterface:
     """Class to provide an interface to Docker"""
-
     def __init__(self):
         """Constructor"""
         # Get a docker client, or print help on how to install/run docker first
@@ -24,11 +31,11 @@ class DockerInterface:
             if not self.docker_is_running():
                 # Docker isn't running
                 self._print_running_help()
-                raise ExitCLI()
+                raise click.Abort()
         else:
             # Docker isn't installed
             self._print_installing_help()
-            raise ExitCLI()
+            raise click.Abort()
 
         # Name of Docker volume used to share between containers
         self.share_vol_name = "labmanager_share_vol"
@@ -74,7 +81,8 @@ class DockerInterface:
                 print_cmd = "{}  - This lets you run Docker commands not as root\n".format(print_cmd)
                 print_cmd = "{}- Log out and then log back in\n".format(print_cmd)
             else:
-                raise ExitCLI("You must install Docker to use the Gigantum application")
+                click.echo("You must install Docker to use the Gigantum Client", err=True)
+                raise click.Abort()
 
         elif queried_system == 'Darwin':
             print_cmd = "Docker isn't installed. Get the Docker for Mac app here: "
@@ -191,7 +199,7 @@ class DockerInterface:
 
         return rewritten_work_dir
 
-    def _get_docker_client(self, check_server_version=True, fallback=True):
+    def _get_docker_client(self):
         """Return a docker client with proper version to match server API.
 
         Args:
@@ -201,18 +209,7 @@ class DockerInterface:
         Returns:
             docker.DockerClient
         """
-
-        if check_server_version:
-            try:
-                docker_server_api_version = self._get_docker_server_api_version()
-                return docker.from_env(version=docker_server_api_version)
-            except ValueError as e:
-                if fallback:
-                    return docker.from_env()
-                else:
-                    raise e
-        else:
-            return docker.from_env()
+        return docker.from_env()
 
     def share_volume_exists(self):
         """Check if the container-container share volume exists
@@ -242,3 +239,64 @@ class DockerInterface:
         """
         volume = self.client.volumes.get(self.share_vol_name)
         volume.remove()
+
+    def cleanup_containers(self) -> None:
+        """Method to clean up gigantum managed containers, stopping if needed.
+
+        Note: this method is the only place removal of containers should occur
+
+        Returns:
+            None
+        """
+        docker = DockerInterface()
+
+        # Stop any project containers
+        for container in docker.client.containers.list(all=True):
+            if "gmlb-" in container.name:
+                _, user, owner, project_name = container.name.split('-', 3)
+                print('- Cleaning up container for Project: {}'.format(project_name))
+                container.stop()
+                container.remove()
+
+        # Stop app container
+        try:
+            app_container = docker.client.containers.get("gigantum.labmanager-edge")
+
+            print('- Cleaning up Gigantum Client container')
+            app_container.stop()
+            app_container.remove()
+        except NotFound:
+            pass
+        except (requests.exceptions.ChunkedEncodingError, TempDockerError):
+            # Temporary fix due to docker 2.5.0.0 and docker-py failing when container doesn't exist
+            # See https://github.com/docker/docker-py/issues/2696
+            pass
+
+        try:
+            app_container = docker.client.containers.get("gigantum.labmanager")
+
+            print('- Cleaning up Gigantum Client container')
+            app_container.stop()
+            app_container.remove()
+        except NotFound:
+            pass
+        except (requests.exceptions.ChunkedEncodingError, TempDockerError):
+            # Temporary fix due to docker 2.5.0.0 and docker-py failing when container doesn't exist
+            # See https://github.com/docker/docker-py/issues/2696
+            pass
+
+    @staticmethod
+    def image_name(is_edge: bool) -> str:
+        """Helper method to get the image name
+        Args:
+            is_edge:
+
+        Returns:
+            str
+        """
+        if is_edge:
+            image_name = 'gigantum/labmanager-edge'
+        else:
+            image_name = 'gigantum/labmanager'
+
+        return image_name

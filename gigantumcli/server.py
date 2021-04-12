@@ -3,8 +3,10 @@ import os
 import json
 import glob
 import requests
-from gigantumcli.utilities import ExitCLI, ask_question
+from gigantumcli.utilities import ask_question
 import urllib3
+import shutil
+import click
 
 
 class ServerConfig:
@@ -48,7 +50,8 @@ class ServerConfig:
                     pass
             else:
                 # User decided not to proceed.
-                raise ExitCLI("SSL Verification failed on server located at {}.".format(url))
+                click.echo("SSL Verification failed on server located at {}.".format(url))
+                raise click.Abort()
         except requests.exceptions.ConnectionError:
             pass
 
@@ -75,8 +78,8 @@ class ServerConfig:
             succeed, data, verify = self._fetch_wellknown_data(enterprise_url)
 
         if not succeed:
-            raise ExitCLI("Failed to discover configuration for server located at"
-                          " {}. Check server URL and try again.".format(url))
+            raise click.UsageError("Failed to discover configuration for server located at"
+                                   " `{}`. Check server URL and try again.".format(url))
         return data, verify
 
     def add_server(self, url):
@@ -107,8 +110,8 @@ class ServerConfig:
         # Fetch Auth configuration
         response = requests.get(server_data['auth_config_url'], verify=verify)
         if response.status_code != 200:
-            raise ExitCLI("Failed to load auth configuration "
-                          "for server located at {}: {}".format(url, response.status_code))
+            raise click.UsageError("Failed to load auth configuration "
+                                   "for server located at {}: {}".format(url, response.status_code))
         auth_data = response.json()
 
         # Create servers dir if it is missing (maybe this user has never started the client)
@@ -137,17 +140,76 @@ class ServerConfig:
             list
         """
         configured_servers = list()
+        id_len = 0
+        name_len = 0
+        url_len = 0
         for server_file in glob.glob(os.path.join(self.servers_dir, "*.json")):
             with open(server_file, 'rt') as f:
                 data = json.load(f)
                 hub_url_parts = urlparse(data['server']['hub_api_url'])
                 server_url = hub_url_parts.scheme + "://" + hub_url_parts.netloc
                 configured_servers.append((data['server']['id'], data['server']['name'], server_url))
+                id_len = max(id_len, len(data['server']['id']))
+                name_len = max(name_len, len(data['server']['name']))
+                url_len = max(url_len, len(server_url))
 
         if should_print:
-            print('%-30s' % "Server ID", '%-30s' % "Server Name", '%-30s' % "Server Location")
+            id_len += 5
+            name_len += 5
+            url_len += 5
+
+            print("Server ID".ljust(id_len), "Server Name".ljust(name_len), "Server Location".ljust(url_len))
             for server in configured_servers:
-                print('%-30s' % server[0], '%-30s' % server[1], '%-30s' % server[2])
+                print(server[0].ljust(id_len), server[1].ljust(name_len), server[2].ljust(url_len))
             print("\n")
 
         return configured_servers
+
+    def remove_server(self, server_id: str) -> None:
+        """Method to remove a server
+
+        Args:
+            server_id(str): ID of the server to remove
+
+        Returns:
+            None
+        """
+        # Set CURRENT to a reasonable value if it is set to the server being removed
+        current_path = os.path.join(self.servers_dir, 'CURRENT')
+        with open(current_path, 'rt') as cf:
+            current_server = cf.read()
+
+        if current_server == server_id:
+            new_current_server = None
+            servers = self.list_servers()
+            # Try gigantum-com first
+            match = [s for s in servers if s[0] == "gigantum-com"]
+            if match:
+                new_current_server = "gigantum-com"
+            else:
+                other_servers = [s for s in servers if s[0] != server_id]
+                if len(other_servers) == 0:
+                    raise ValueError("You must have another valid server configured (e.g. gigantum.com) before "
+                                     "removing this server")
+                # Just pick the first one
+                new_current_server = other_servers[0][0]
+
+            with open(current_path, 'wt') as cf:
+                cf.write(new_current_server)
+
+        # Remove user data dir
+        shutil.rmtree(os.path.join(self.working_dir, 'servers', server_id), ignore_errors=True)
+
+        # Remove dataset file cache (if it exists)
+        shutil.rmtree(os.path.join(self.working_dir, '.labmanager', 'datasets', server_id), ignore_errors=True)
+
+        # Remove sensitive file cache (if it exists
+        shutil.rmtree(os.path.join(self.working_dir, '.labmanager', 'secrets', server_id), ignore_errors=True)
+
+        # Remove cached JWKS
+        jwks_file = os.path.join(self.working_dir, '.labmanager', 'identity', "{}-jwks.json".format(server_id))
+        if os.path.isfile(jwks_file):
+            os.remove(jwks_file)
+
+        # Remove server configuration
+        os.remove(os.path.join(self.servers_dir,  "{}.json".format(server_id)))
