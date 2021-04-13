@@ -25,11 +25,16 @@ def _check_for_api(port: int = 10000, launch_browser: bool = False, timeout: int
     Returns:
         bool: flag indicating if the API is ready
     """
-    time.sleep(1)
+    protocol = "http"
+    if port == 443:
+        protocol = "https"
+
     success = False
     for _ in range(timeout):
+        time.sleep(1)
         try:
-            resp = requests.get("http://localhost:{}/api/ping?v={}".format(port, uuid.uuid4().hex))
+            resp = requests.get("{}://localhost:{}/api/ping?v={}".format(protocol, port, uuid.uuid4().hex),
+                                verify=False)
 
             if resp.status_code == 200:
                 success = True
@@ -38,13 +43,10 @@ def _check_for_api(port: int = 10000, launch_browser: bool = False, timeout: int
             # allow connection errors, which mean the API isn't up yet.
             pass
 
-        # Sleep for 1 sec and increment counter
-        time.sleep(1)
-
     if success is True and launch_browser is True:
         time.sleep(1)
         # If here, things look OK. Start browser
-        webbrowser.open_new("http://localhost:{}".format(port))
+        webbrowser.open_new("{}://localhost:{}".format(protocol, port))
 
     return success
 
