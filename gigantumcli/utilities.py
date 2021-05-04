@@ -6,6 +6,7 @@ import os
 import platform
 import subprocess
 import re
+import click
 
 
 def ask_question(question, accept_confirmation=False):
@@ -57,6 +58,23 @@ def get_nvidia_driver_version() -> Optional[str]:
                 m = re.match(r"([\d.]+)", output.decode())
                 if m:
                     driver_version = m.group(0)
+
+                if driver_version is None:
+                    # Failed to match on the regex, so there's a possible issue with drivers
+                    click.echo()
+                    click.echo()
+                    click.secho('********* WARNING *********', bg='yellow', bold=True)
+                    click.echo()
+                    click.echo(f"Failed to get NVIDIA driver version due to error: {output.decode()}")
+                    click.echo(f"GPU support is disabled.")
+                    if "driver/library version mismatch" in output.decode().lower():
+                        click.echo()
+                        click.echo(f"It is likely that rebooting this system will resolve the issue.")
+                    click.echo()
+                    click.secho('********* WARNING *********', bg='yellow', bold=True)
+                    click.echo()
+                    click.echo()
+                    return driver_version
 
                 # If driver has a build version, strip it because we don't match on that.
                 parts = driver_version.split('.')
