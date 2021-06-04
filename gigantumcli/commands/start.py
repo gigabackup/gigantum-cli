@@ -6,6 +6,8 @@ import os
 import webbrowser
 import time
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
 import uuid
 import click
 
@@ -13,6 +15,11 @@ from gigantumcli.dockerinterface import DockerInterface
 from gigantumcli.commands.install import install
 from gigantumcli.config import ConfigOverrideFile
 from gigantumcli.utilities import ask_question, is_running_as_admin, get_nvidia_driver_version
+
+# We can disable this because requests is just being used to verify API connectivity
+# and in a context where the client is running with HTTPS, the lookup still happens on
+# localhost so ssl verification will fail anyway.
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 
 def _check_for_api(port: int = 10000, launch_browser: bool = False, timeout: int = 5):
@@ -152,6 +159,9 @@ def start(ctx, edge: bool, timeout: int, tag: Optional[str] = None, port: int = 
         interface = "127.0.0.1"
 
     port_mapping = {'10000/tcp': (interface, port)}
+    if port == 443:
+        # Running on https, set up http->https redirect
+        port_mapping['10080/tcp'] = (interface, 80)
 
     # Make sure the container-container share volume exists
     if not docker_obj.share_volume_exists():
