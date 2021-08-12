@@ -1,10 +1,11 @@
 from __future__ import print_function
 from six.moves import input
-from typing import Optional
+from typing import Optional, Tuple
 import ctypes
 import os
 import platform
 import subprocess
+import shlex
 import re
 import click
 
@@ -47,17 +48,27 @@ def is_running_as_admin():
     return is_admin
 
 
-def get_nvidia_driver_version() -> Optional[str]:
+def get_nvidia_gpu_info() -> Tuple[Optional[str], int]:
+    """Method to get the driver version and number of GPUs available
+
+    Notes:
+        - If drivers aren't installed, the driver version is set to None
+        - If the driver version has major.minor.revision, only major.minor is returned
+
+    Returns:
+        driver version, number of GPUs
+    """
     driver_version = None
+    num_gpus = 0
     if platform.system() == 'Linux':
         try:
             bash_command = "nvidia-smi --query-gpu=driver_version --format=csv,noheader"
             process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
             output, error = process.communicate()
             if not error:
-                m = re.match(r"([\d.]+)", output.decode())
+                m = re.findall(r"([\d.]+)", output.decode())
                 if m:
-                    driver_version = m.group(0)
+                    driver_version = m[0]
 
                 if driver_version is None:
                     # Failed to match on the regex, so there's a possible issue with drivers
@@ -74,12 +85,13 @@ def get_nvidia_driver_version() -> Optional[str]:
                     click.secho('********* WARNING *********', bg='yellow', bold=True)
                     click.echo()
                     click.echo()
-                    return driver_version
+                    return driver_version, num_gpus
 
                 # If driver has a build version, strip it because we don't match on that.
                 parts = driver_version.split('.')
                 driver_version = f"{parts[0]}.{parts[1]}"
+                num_gpus = len(m)
 
         except FileNotFoundError:
             pass
-    return driver_version
+    return driver_version, num_gpus

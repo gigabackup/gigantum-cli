@@ -14,7 +14,7 @@ import click
 from gigantumcli.dockerinterface import DockerInterface
 from gigantumcli.commands.install import install
 from gigantumcli.config import ConfigOverrideFile
-from gigantumcli.utilities import ask_question, is_running_as_admin, get_nvidia_driver_version
+from gigantumcli.utilities import ask_question, is_running_as_admin, get_nvidia_gpu_info
 
 # We can disable this because requests is just being used to verify API connectivity
 # and in a context where the client is running with HTTPS, the lookup still happens on
@@ -186,9 +186,15 @@ def start(ctx, edge: bool, timeout: int, tag: Optional[str] = None, port: int = 
         volume_mapping[working_dir] = {'bind': '/mnt/gigantum', 'mode': 'cached'}
     else:
         # For anything else, just use default mode.
+        driver_version, num_gpus = get_nvidia_gpu_info()
         environment_mapping = {'HOST_WORK_DIR': working_dir,
                                'LOCAL_USER_ID':  os.getuid(),
-                               'NVIDIA_DRIVER_VERSION': get_nvidia_driver_version()}
+                               'NVIDIA_DRIVER_VERSION': driver_version}
+
+        if driver_version:
+            print(f"Detected {num_gpus} GPU(s) available for use.")
+            environment_mapping['NVIDIA_NUM_GPUS'] = num_gpus
+
         volume_mapping[working_dir] = {'bind': '/mnt/gigantum', 'mode': 'rw'}
 
     volume_mapping['/var/run/docker.sock'] = {'bind': '/var/run/docker.sock', 'mode': 'rw'}
