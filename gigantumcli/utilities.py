@@ -95,3 +95,27 @@ def get_nvidia_gpu_info() -> Tuple[Optional[str], int]:
         except FileNotFoundError:
             pass
     return driver_version, num_gpus
+
+
+def get_nvidia_smi_path() -> Optional[str]:
+    """
+
+    Returns:
+
+    """
+    nvidia_smi_path = None
+    if platform.system() == 'Linux':
+        print(f"Searching for nvidia-smi")
+        try:
+            process = subprocess.Popen(['which', 'nvidia-smi'], stdout=subprocess.PIPE)
+            output, error = process.communicate()
+            if not error:
+                result = output.decode().strip()
+                if result.endswith('nvidia-smi'):
+                    print(f"DETECTED NVIDIA_SMI: {result}")
+                    nvidia_smi_path = result
+        except:
+            # If we can't find nvidia-smi just continue on
+            pass
+
+    return nvidia_smi_path

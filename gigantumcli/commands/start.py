@@ -14,7 +14,7 @@ import click
 from gigantumcli.dockerinterface import DockerInterface
 from gigantumcli.commands.install import install
 from gigantumcli.config import ConfigOverrideFile
-from gigantumcli.utilities import ask_question, is_running_as_admin, get_nvidia_gpu_info
+from gigantumcli.utilities import ask_question, is_running_as_admin, get_nvidia_gpu_info, get_nvidia_smi_path
 
 # We can disable this because requests is just being used to verify API connectivity
 # and in a context where the client is running with HTTPS, the lookup still happens on
@@ -194,6 +194,13 @@ def start(ctx, edge: bool, timeout: int, tag: Optional[str] = None, port: int = 
         if driver_version:
             print(f"Detected {num_gpus} GPU(s) available for use.")
             environment_mapping['NVIDIA_NUM_GPUS'] = num_gpus
+
+            # Mount nvidia-smi as read-only
+            print("LOOKING UP NVIDIA SMI")
+            smi_path = get_nvidia_smi_path()
+            print(f"PATH: {smi_path}")
+            if smi_path:
+                environment_mapping['NVIDIA_SMI_PATH'] = smi_path
 
         volume_mapping[working_dir] = {'bind': '/mnt/gigantum', 'mode': 'rw'}
 
