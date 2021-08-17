@@ -195,10 +195,8 @@ def start(ctx, edge: bool, timeout: int, tag: Optional[str] = None, port: int = 
             print(f"Detected {num_gpus} GPU(s) available for use.")
             environment_mapping['NVIDIA_NUM_GPUS'] = num_gpus
 
-            # Mount nvidia-smi as read-only
-            print("LOOKING UP NVIDIA SMI")
+            # Mount nvidia-smi as read-only if present
             smi_path = get_nvidia_smi_path()
-            print(f"PATH: {smi_path}")
             if smi_path:
                 environment_mapping['NVIDIA_SMI_PATH'] = smi_path
 
